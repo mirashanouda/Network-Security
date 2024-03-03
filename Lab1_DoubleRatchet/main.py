@@ -8,7 +8,7 @@ def error(s):
   print("=== ERROR: " + s)
 
 print("Initializing Server")
-server_sign_sk = ec.generate_private_key(ec.SECP256R1(), default_backend())
+server_sign_sk = ec.generate_private_key(ec.SECP256R1())
 server = MessengerServer(server_sign_sk)
 
 server_sign_pk = server_sign_sk.public_key()
@@ -71,8 +71,22 @@ if msg != "Hey Alice!":
 else:
     print("success 3!")
 
-header, ct = bob.sendMessage("alice", "Can't talk now")
-msg = alice.receiveMessage("bob", header, ct)
+header, ct = bob.sendMessage("carol", "I'll remember to start early next time!")
+msg = carol.receiveMessage("bob", header, ct)
+if msg != "I'll remember to start early next time!":
+    error("message 8 was not decrypted correctly")
+else:
+    print("success 8!")
+
+header, ct = alice.sendMessage("bob", "Ok, bye Bob!")
+msg = bob.receiveMessage("alice", header, ct)
+if msg != "Ok, bye Bob!":
+    error("message 6  was not decrypted correctly")
+else:
+    print("success 6!")
+
+header, ct = carol.sendMessage("bob", "Can't talk now")
+msg = bob.receiveMessage("carol", header, ct)
 if msg != "Can't talk now":
     error("message 4 was not decrypted correctly")
 else: 
@@ -85,12 +99,13 @@ if msg != "Started the homework too late :(":
 else:
     print("success 5!")
 
-header, ct = alice.sendMessage("bob", "Ok, bye Bob!")
-msg = bob.receiveMessage("alice", header, ct)
-if msg != "Ok, bye Bob!":
-    error("message 6  was not decrypted correctly")
-else:
-    print("success 6!")
+
+header, ct = bob.sendMessage("alice", "Can't talk now")
+msg = alice.receiveMessage("bob", header, ct)
+if msg != "Can't talk now":
+    error("message 4 was not decrypted correctly")
+else: 
+    print("success 4!")
 
 header, ct = bob.sendMessage("alice", "I'll remember to start early next time!")
 msg = alice.receiveMessage("bob", header, ct)
@@ -99,12 +114,7 @@ if msg != "I'll remember to start early next time!":
 else:
     print("success 7!")
 
-header, ct = bob.sendMessage("carol", "I'll remember to start early next time!")
-msg = carol.receiveMessage("bob", header, ct)
-if msg != "I'll remember to start early next time!":
-    error("message 8 was not decrypted correctly")
-else:
-    print("success 8!")
+
 
 print("conversation completed!")
 

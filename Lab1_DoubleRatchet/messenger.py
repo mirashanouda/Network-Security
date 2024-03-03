@@ -102,7 +102,6 @@ class MessengerClient:
     def __init__(self, name, server_signing_pk):
         self.name = name
         self.server_signing_pk = server_signing_pk # server's public key
-        # self.client_priKey = ec.generate_private_key(ec.SECP256R1())
         self.client_priKey = generate_DH()
         self.client_pubKey = self.client_priKey.public_key()
         self.conns = {}
@@ -152,7 +151,6 @@ class MessengerClient:
 
         self.last_operation[name] = "send"
         mk, self.cks[name] = KDF_CK(self.cks[name])
-        self.client_pubKey = self.client_priKey.public_key()
         header = self.client_pubKey.public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo
