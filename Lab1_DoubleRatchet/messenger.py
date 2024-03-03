@@ -109,6 +109,7 @@ class MessengerClient:
         self.certs = {}
         self.cks = {}
         self.last_operation = {}
+        self.rks = {}
  
     def generateCertificate(self):
         cert = {
@@ -141,13 +142,13 @@ class MessengerClient:
         if not name in self.conns:
             self.conns[name] = load_pem_public_key(self.certs[name]['public_key'].encode())
             dh_out = DH(self.client_priKey, self.conns[name])
-            self.rk, self.cks[name] = KDF_RK(dh_out, dh_out)
+            self.rks[name], self.cks[name] = KDF_RK(dh_out, dh_out)
 
         if name in self.conns and name in self.last_operation and self.last_operation[name] != "send":
             self.client_priKey = generate_DH()
             self.client_pubKey = self.client_priKey.public_key()
             dh_out = DH(self.client_priKey, self.conns[name])
-            self.rk, self.cks[name] = KDF_RK(dh_out, dh_out)
+            self.rks[name], self.cks[name] = KDF_RK(self.rks[name], dh_out)
 
         self.last_operation[name] = "send"
         mk, self.cks[name] = KDF_CK(self.cks[name])
@@ -160,10 +161,15 @@ class MessengerClient:
         return header, encrypted_msg
 
     def receiveMessage(self, name, header, ciphertext): 
-        if not name in self.conns or load_pem_public_key(header) != self.conns[name]:
+        if not name in self.conns:
             self.conns[name] = load_pem_public_key(header)
             dh_out = DH(self.client_priKey, self.conns[name])
-            self.rk, self.cks[name] = KDF_RK(dh_out, dh_out)
+            self.rks[name], self.cks[name] = KDF_RK(dh_out, dh_out)
+        
+        if load_pem_public_key(header) != self.conns[name]:
+            self.conns[name] = load_pem_public_key(header)
+            dh_out = DH(self.client_priKey, self.conns[name])
+            self.rks[name], self.cks[name] = KDF_RK(self.rks[name], dh_out)
         
         self.last_operation[name] = "rec"
         mk, self.cks[name] = KDF_CK(self.cks[name])

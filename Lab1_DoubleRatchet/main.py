@@ -99,8 +99,14 @@ if msg != "I'll remember to start early next time!":
 else:
     print("success 7!")
 
-print("conversation completed!")
+header, ct = bob.sendMessage("carol", "I'll remember to start early next time!")
+msg = carol.receiveMessage("bob", header, ct)
+if msg != "I'll remember to start early next time!":
+    error("message 8 was not decrypted correctly")
+else:
+    print("success 8!")
 
+print("conversation completed!")
 
 print("Testing handling an incorrect message")
 
