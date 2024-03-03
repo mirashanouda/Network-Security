@@ -1,6 +1,3 @@
-import os
-import pickle
-import string
 import json
 from cryptography.hazmat.primitives.asymmetric import ec, x25519, utils
 from cryptography.hazmat.primitives import serialization
@@ -9,7 +6,8 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.hmac import HMAC
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
-from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
 
 def generate_DH():
     # Generate a Diffie-Hellman key pair
@@ -60,58 +58,34 @@ def KDF_CK(ck):
 def encrypt(mk, plaintext, associated_data):
     hkdf = HKDF(
         algorithm=hashes.SHA256(),
-        length=80,
+        length=32 + 12,
         salt=b'\x00' * 32, # zero-filled byte sequence equal to the hash's output length
         info=None,
     )
     hkdf_out = hkdf.derive(mk)
     encryption_key = hkdf_out[:32]
-    authentication_key = hkdf_out[32:64]
-    iv = hkdf_out[64:]
+    nonce = hkdf_out[32:]
 
-    cipher = Cipher(algorithms.AES(encryption_key), modes.CBC(iv))
-    encryptor = cipher.encryptor()
-    padder = padding.PKCS7(algorithms.AES.block_size).padder()
-    padded_data = padder.update(plaintext.encode('utf-8')) + padder.finalize()
-    ciphertext = encryptor.update(padded_data) + encryptor.finalize()
- 
-    # Compute HMAC
-    hmac = HMAC(authentication_key, hashes.SHA256())
-    hmac.update(associated_data + ciphertext)
-    hmac_digest = hmac.finalize()
+    aesgcm = AESGCM(encryption_key)
+    ciphertext = aesgcm.encrypt(nonce, plaintext.encode('utf-8'), associated_data)
+    return nonce + ciphertext  # Prepend nonce to ciphertext for use in decryption
 
-    # Return ciphertext appended with HMAC digest
-    return ciphertext + hmac_digest
 
 def decrypt(mk, ciphertext, associated_data):
     # Returns the AEAD decryption of ciphertext with message key mk. If authentication fails, an exception will be raised that terminates processing.
     hkdf = HKDF(
         algorithm=hashes.SHA256(),
-        length=80,
+        length=32 + 12,
         salt=b'\x00' * 32, # zero-filled byte sequence equal to the hash's output length
         info=None,
     )
     hkdf_out = hkdf.derive(mk)
     encryption_key = hkdf_out[:32]
-    authentication_key = hkdf_out[32:64]
-    iv = hkdf_out[64:]
+    nonce = ciphertext[:12]
+    ciphertext = ciphertext[12:]
 
-    # Split the ciphertext into the actual ciphertext and the HMAC digest
-    ciphertext, hmac_digest = ciphertext[:-32], ciphertext[-32:]
-
-    # Verify the HMAC
-    hmac = HMAC(authentication_key, hashes.SHA256())
-    hmac.update(associated_data + ciphertext)
-    hmac.verify(hmac_digest)
-
-    # Decrypt the ciphertext
-    cipher = Cipher(algorithms.AES(encryption_key), modes.CBC(iv))
-    decryptor = cipher.decryptor()
-    decrypted_data = decryptor.update(ciphertext) + decryptor.finalize()
-
-    # Remove padding
-    unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
-    plaintext = unpadder.update(decrypted_data) + unpadder.finalize()
+    aesgcm = AESGCM(encryption_key)
+    plaintext = aesgcm.decrypt(nonce, ciphertext, associated_data)
     return plaintext.decode('utf-8')
 
 
