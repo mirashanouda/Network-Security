@@ -139,46 +139,34 @@ class MessengerClient:
     def sendMessage(self, name, message):
         # print("connections: ", self.conns)
         if not name in self.conns:
-            # print("######## New send to", name)
             self.conns[name] = load_pem_public_key(self.certs[name]['public_key'].encode())
             dh_out = DH(self.client_priKey, self.conns[name])
-            # print("dh_out", dh_out)
             self.rk, self.cks[name] = KDF_RK(dh_out, dh_out)
-            # print("enc rk", self.rk, "enc ck", self.cks[name])
 
         if name in self.conns and name in self.last_operation and self.last_operation[name] != "send":
-            # print("######## New send to", name)
             self.client_priKey = generate_DH()
             self.client_pubKey = self.client_priKey.public_key()
             dh_out = DH(self.client_priKey, self.conns[name])
             self.rk, self.cks[name] = KDF_RK(dh_out, dh_out)
 
         self.last_operation[name] = "send"
-        # print("send ck for ", name , " ", self.cks[name])
         mk, self.cks[name] = KDF_CK(self.cks[name])
-        # print("send next ck for ", name , " ", self.cks[name])
         self.client_pubKey = self.client_priKey.public_key()
         header = self.client_pubKey.public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo
         )
-        # print("enc mk", mk, " enc ck", self.cks[name])
         encrypted_msg = encrypt(mk, message, header)
-        # print("header = ", header)
         return header, encrypted_msg
 
     def receiveMessage(self, name, header, ciphertext): 
         if not name in self.conns or load_pem_public_key(header) != self.conns[name]:
-            # print("######## New rec from", name)
             self.conns[name] = load_pem_public_key(header)
             dh_out = DH(self.client_priKey, self.conns[name])
             self.rk, self.cks[name] = KDF_RK(dh_out, dh_out)
         
         self.last_operation[name] = "rec"
-        # print("rec ck for ", name , " ", self.cks[name])
         mk, self.cks[name] = KDF_CK(self.cks[name])
-        # print("rec next ck for ", name , " ", self.cks[name])
-        # print("dec mk", mk, " dec ck", self.cks[name])
         try:
             return decrypt(mk, ciphertext, header)
         except:
